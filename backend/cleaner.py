@@ -5,66 +5,86 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-# Download required NLTK packages (first time only)
+# Ensure required NLTK datasets are downloaded
 try:
     nltk.data.find("corpora/stopwords")
-except:
+except LookupError:
     nltk.download("stopwords")
 
 try:
     nltk.data.find("corpora/wordnet")
-except:
+except LookupError:
     nltk.download("wordnet")
+
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
 
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words("english"))
 
 
 def clean_text(text):
-
-    # 1. Remove HTML tags
+    # Remove HTML tags
     text = BeautifulSoup(text, "html.parser").get_text()
-
-    # 2. Remove URLs
-    text = re.sub(r"http\S+|www\.\S+", "", text)
-
-    # 3. Remove boilerplate news text patterns
+    
+    # Remove URLs
+    text = re.sub(r"http\S+|www\.\S+|https\S+", "", text)
+    
+    # Remove email addresses
+    text = re.sub(r"\S+@\S+", "", text)
+    
+    # Remove boilerplate text
     boilerplate_patterns = [
-        r"subscribe now", r"read more", r"advertisement",
-        r"all rights reserved", r"cookies", r"newsletter",
-        r"click here", r"follow us", r"sign up"
+        r"subscribe.*?now",
+        r"advertisement",
+        r"all rights reserved",
+        r"cookie.*?policy",
+        r"newsletter.*?sign",
+        r"click.*?here",
+        r"read.*?more",
+        r"share.*?article",
+        r"follow.*?us",
     ]
+    
     for pattern in boilerplate_patterns:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
-
-    # 4. Remove duplicate lines
-    lines = text.splitlines()
-    unique_lines = list(dict.fromkeys(lines))  
-    text = " ".join(unique_lines)
-
-    # 5. Lowercasing
+    
+    # Remove numbers (if they don't add value)
+    # Keep dates and important numbers by being selective
+    text = re.sub(r"\b\d+(?:\s*(?:am|pm|am|pm))\b", "", text, flags=re.IGNORECASE)
+    
+    # Remove extra punctuation but keep sentence structure
+    text = re.sub(r"[!?]{2,}", "!", text)  # Replace multiple ! or ? with single
+    
+    # Convert to lowercase
     text = text.lower()
-
-    # 6. Remove numbers
-    text = re.sub(r"\d+", "", text)
-
-    # 7. Remove punctuation
-    text = text.translate(str.maketrans("", "", string.punctuation))
-
-    # 8. Normalize multiple spaces
+    
+    # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
-
-    # 9. Tokenization
+    
+    # Tokenize into words
     words = text.split()
-
-    # 10. Stopword removal + Lemmatization
-    final_words = [
-        lemmatizer.lemmatize(w)
-        for w in words
-        if w not in stop_words and len(w) > 2
+    
+    # Remove stopwords and lemmatize
+    cleaned_words = [
+        lemmatizer.lemmatize(word)
+        for word in words
+        if word not in stop_words and len(word) > 2 and word.isalpha()
     ]
+    
+    return " ".join(cleaned_words)
 
-    # 11. Final clean text
-    cleaned_text = " ".join(final_words)
 
-    return cleaned_text
+def clean_text_for_display(text):
+    # Remove HTML tags
+    text = BeautifulSoup(text, "html.parser").get_text()
+    
+    # Remove URLs
+    text = re.sub(r"http\S+|www\.\S+|https\S+", "", text)
+    
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    
+    return text
